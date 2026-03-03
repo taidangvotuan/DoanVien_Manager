@@ -26,3 +26,4 @@ npm run dev
 **3. Xóa thông tin thu chi (chỉ áp dụng cho mục "Các khoản thuc khác" và "Các khoản chi")**
 **4. Danh sách tổng hợp các thu chi của các tháng**
 **5. Xuất danh sách thu chi đoàn phí qua file Word**# QuanLyDoanVien
+# DoanVien_Manager
