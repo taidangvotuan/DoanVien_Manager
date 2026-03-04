@@ -75,6 +75,8 @@ export function MemberDialog({
     CMND: "",
     PhuGhi: "",
   });
+  const NgayHienTai: Date = new Date();
+  NgayHienTai.setHours(0, 0, 0, 0);
 
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -143,8 +145,24 @@ export function MemberDialog({
     if (!formData.NgaySinh) {
       newErrors.NgaySinh = "Ngày sinh là bắt buộc";
     }
+    if (formData.NgaySinh) {
+      const ngaySinhDate = new Date(formData.NgaySinh);
+      ngaySinhDate.setHours(0, 0, 0, 0);
+      
+      if (ngaySinhDate >= NgayHienTai) {
+        newErrors.NgaySinh = "Ngày sinh phải nhỏ hơn ngày hiện tại";
+      }
+    }
     if (!formData.NgayNhapNgu) {
       newErrors.NgayNhapNgu = "Ngày nhập ngũ là bắt buộc";
+    }
+    if (formData.NgayNhapNgu) {
+      const ngayNhapNgu = new Date(formData.NgayNhapNgu);
+      ngayNhapNgu.setHours(0, 0, 0, 0);
+      
+      if (ngayNhapNgu >= NgayHienTai) {
+      newErrors.NgayNhapNgu = "Ngày nhập ngũ phải nhỏ hơn ngày hiện tại";
+      }
     }
     if (!formData.CapBac || formData.CapBac.length > 3) {
       newErrors.CapBac = "Cấp bậc là bắt buộc (khoảng 3 ký tự)";
@@ -165,7 +183,15 @@ export function MemberDialog({
       newErrors.TrinhDoVanHoa = "Trình độ văn hóa là bắt buộc (khoảng 10 ký tự)";
     }
     if (!formData.VaoDangDoan) {
-      newErrors.VaoDangDoan = "Vào đoàn/Đoàn là bắt buộc";
+      newErrors.VaoDangDoan = "Vào Đảng/Đoàn là bắt buộc";
+    }
+    if (formData.NgayVaoDangDoan) {
+      const ngayVaoDangDoan = new Date(formData.NgayVaoDangDoan);
+      ngayVaoDangDoan.setHours(0, 0, 0, 0);
+      
+      if (ngayVaoDangDoan >= NgayHienTai) {
+        newErrors.NgayVaoDangDoan = "Ngày vào Đảng/Đoàn phải nhỏ hơn ngày hiện tại";
+      }
     }
     if (!formData.QueQuan || formData.QueQuan.length > 20) {
       newErrors.QueQuan = "Quê quán là bắt buộc (khoảng 20 ký tự)";
@@ -206,7 +232,7 @@ export function MemberDialog({
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="SoHieuQN">Số hiệu quân nhân</Label>
+              <Label htmlFor="SoHieuQN">Số hiệu quân nhân<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="SoHieuQN"
                 type="number"
@@ -221,7 +247,7 @@ export function MemberDialog({
               {errors.SoHieuQN && <p className="text-red-500 text-sm">{errors.SoHieuQN}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="HoTen">Họ và tên</Label>
+              <Label htmlFor="HoTen">Họ và tên<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="HoTen"
                 value={formData.HoTen}
@@ -234,7 +260,7 @@ export function MemberDialog({
               {errors.HoTen && <p className="text-red-500 text-sm">{errors.HoTen}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="NgaySinh">Ngày, tháng, năm sinh</Label>
+              <Label htmlFor="NgaySinh">Ngày, tháng, năm sinh<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="NgaySinh"
                 type="date"
@@ -247,7 +273,7 @@ export function MemberDialog({
               {errors.NgaySinh && <p className="text-red-500 text-sm">{errors.NgaySinh}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="NgayNhapNgu">Nhập ngũ</Label>
+              <Label htmlFor="NgayNhapNgu">Nhập ngũ<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="NgayNhapNgu"
                 type="date"
@@ -260,7 +286,7 @@ export function MemberDialog({
               {errors.NgayNhapNgu && <p className="text-red-500 text-sm">{errors.NgayNhapNgu}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="CapBac">Cấp bậc</Label>
+              <Label htmlFor="CapBac">Cấp bậc<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="CapBac"
                 value={formData.CapBac}
@@ -273,7 +299,7 @@ export function MemberDialog({
               {errors.CapBac && <p className="text-red-500 text-sm">{errors.CapBac}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="ChucVu">Chức vụ</Label>
+              <Label htmlFor="ChucVu">Chức vụ<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="ChucVu"
                 value={formData.ChucVu}
@@ -286,7 +312,7 @@ export function MemberDialog({
               {errors.ChucVu && <p className="text-red-500 text-sm">{errors.ChucVu}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="DonVi">Đơn vị</Label>
+              <Label htmlFor="DonVi">Đơn vị<span style={{color: 'red'}}>*</span></Label>
               <Select
                 value={formData.DonVi}
                 onValueChange={(value) =>
@@ -332,7 +358,7 @@ export function MemberDialog({
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="DanToc">Dân tộc</Label>
+              <Label htmlFor="DanToc">Dân tộc<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="DanToc"
                 value={formData.DanToc}
@@ -345,7 +371,7 @@ export function MemberDialog({
               {errors.DanToc && <p className="text-red-500 text-sm">{errors.DanToc}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="TonGiao">Tôn giáo</Label>
+              <Label htmlFor="TonGiao">Tôn giáo<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="TonGiao"
                 value={formData.TonGiao}
@@ -358,7 +384,7 @@ export function MemberDialog({
               {errors.TonGiao && <p className="text-red-500 text-sm">{errors.TonGiao}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="TrinhDoVanHoa">Văn hóa</Label>
+              <Label htmlFor="TrinhDoVanHoa">Văn hóa<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="TrinhDoVanHoa"
                 value={formData.TrinhDoVanHoa}
@@ -371,7 +397,7 @@ export function MemberDialog({
               {errors.TrinhDoVanHoa && <p className="text-red-500 text-sm">{errors.TrinhDoVanHoa}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="VaoDangDoan">Đảng/Đoàn</Label>
+              <Label htmlFor="VaoDangDoan">Đảng/Đoàn<span style={{color: 'red'}}>*</span></Label>
               <Select
                 value={formData.VaoDangDoan}
                 onValueChange={(value: "Đảng" | "Đoàn" | "") =>
@@ -423,7 +449,7 @@ export function MemberDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="QueQuan">Quê quán</Label>
+              <Label htmlFor="QueQuan">Quê quán<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="QueQuan"
                 value={formData.QueQuan}
@@ -436,7 +462,7 @@ export function MemberDialog({
               {errors.QueQuan && <p className="text-red-500 text-sm">{errors.QueQuan}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="NoiOHienNay">Nơi ở hiện nay</Label>
+              <Label htmlFor="NoiOHienNay">Nơi ở hiện nay<span style={{color: 'red'}}>*</span></Label>
               <Textarea
                 id="NoiOHienNay"
                 value={formData.NoiOHienNay}
@@ -449,7 +475,7 @@ export function MemberDialog({
               {errors.NoiOHienNay && <p className="text-red-500 text-sm">{errors.NoiOHienNay}</p>}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="SDT">Số điện thoại</Label>
+              <Label htmlFor="SDT">Số điện thoại<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="SDT"
                 value={formData.SDT}
