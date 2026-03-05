@@ -1,6 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign,
-} from "docx";
+  VerticalMergeType} from "docx";
 
 // ─── Types (mirror FeesPage.tsx) ─────────────────────────────────────────────
 
@@ -12,6 +12,20 @@ interface PlatoonFee {
   r1Count: number; r1Amount: number;
   r2Count: number; r2Amount: number;
   r3Count: number; r3Amount: number;
+}
+
+interface Activity {
+  id: string;
+  name: string;
+  memberCount: number;
+  amountPerMember: number;
+}
+
+interface FixedIncome {
+  id: string;
+  name: string;
+  memberCount: number;
+  amountPerMember: number;
 }
 
 interface OtherIncome {
@@ -32,12 +46,8 @@ interface Expense {
 export interface ExportData {
   currentMonth: string;
   platoonFees: PlatoonFee[];
-  house100Count: number;
-  house100Amount: number;
-  activityCount: number;
-  activityAmount: number;
-  haircutCount: number;
-  haircutAmount: number;
+  activities: Activity[]; 
+  fixedIncomes: FixedIncome[];
   previousBalance: number;
   otherIncomes: OtherIncome[];
   expenses: Expense[];
@@ -72,6 +82,7 @@ interface CellOpts {
   shading?: { fill: string; type: string };
   colspan?: number;
   borders?: typeof thinBorders;
+  rowspan?: number;
 }
 
 const mkCell = (text: string, opts: CellOpts = {}) =>
@@ -104,12 +115,14 @@ interface ParaOpts {
   align?: (typeof AlignmentType)[keyof typeof AlignmentType];
   before?: number;
   after?: number;
+  indent?: number;
 }
 
 const mkPara = (text: string, opts: ParaOpts = {}) =>
   new Paragraph({
     alignment: opts.align ?? AlignmentType.LEFT,
     spacing:   { before: opts.before ?? 60, after: opts.after ?? 60 },
+    indent:    opts.indent ? { left: opts.indent } : undefined,
     children: [
       new TextRun({
         text,
@@ -131,23 +144,23 @@ const mkPara = (text: string, opts: ParaOpts = {}) =>
  */
 export async function exportToWord(data: ExportData): Promise<void> {
   const {
-    currentMonth, platoonFees,
-    house100Count, house100Amount,
-    activityCount, activityAmount,
-    haircutCount,  haircutAmount,
+    currentMonth, platoonFees, activities, fixedIncomes,
     previousBalance, otherIncomes, expenses,
   } = data;
 
   // ── Totals ──────────────────────────────────────────────────────────────────
   const totalPlatoonFees  = platoonFees.reduce((s, p) => s + calcPlatoonTotal(p), 0);
-  const totalHouse100     = house100Count * house100Amount;
-  const totalActivity     = activityCount * activityAmount;
-  const totalHaircut      = haircutCount  * haircutAmount;
+  const totalActivities  = activities.reduce((s, a) => s + a.memberCount * a.amountPerMember, 0);
+  const totalFixedIncome = fixedIncomes.reduce((s, f) => s + f.memberCount * f.amountPerMember, 0);
   const totalOtherIncome  = otherIncomes.reduce((s, i) => s + i.amount, 0);
-  const totalIncome       = totalPlatoonFees + totalHouse100 + totalActivity
-                          + totalHaircut + previousBalance + totalOtherIncome;
+  const totalIncome       = totalPlatoonFees + totalActivities + totalFixedIncome
+                           + previousBalance + totalOtherIncome;
   const totalExpense      = expenses.reduce((s, e) => s + e.amount, 0);
   const remainingBalance  = totalIncome - totalExpense;
+
+  // ── Content width: A4 with narrow margins ───────────────────────────────────
+  // Page: 11906 wide; margins: left=1080, right=720 → content = 10106
+  const CONTENT_W = 10106;
 
   // ── Document ─────────────────────────────────────────────────────────────────
   const doc = new Document({
@@ -158,7 +171,7 @@ export async function exportToWord(data: ExportData): Promise<void> {
       {
         properties: {
           page: {
-            size:   { width: 12240, height: 15840 },
+            size:   { width: 11906, height: 16838 }, // A4
             margin: { top: 720, right: 720, bottom: 720, left: 1080 },
           },
         },
@@ -166,8 +179,8 @@ export async function exportToWord(data: ExportData): Promise<void> {
 
           // ── Letterhead ──────────────────────────────────────────────────────
           new Table({
-            width: { size: 10440, type: WidthType.DXA },
-            columnWidths: [4500, 5940],
+            width: { size: CONTENT_W, type: WidthType.DXA },
+            columnWidths: [Math.round(CONTENT_W * 0.43), Math.round(CONTENT_W * 0.57)],
             borders: {
               top: noBorder, bottom: noBorder,
               left: noBorder, right: noBorder,
@@ -176,9 +189,10 @@ export async function exportToWord(data: ExportData): Promise<void> {
             rows: [
               new TableRow({
                 children: [
+                  // Left column – unit info
                   new TableCell({
                     borders: noBorders,
-                    width: { size: 4500, type: WidthType.DXA },
+                    width: { size: Math.round(CONTENT_W * 0.43), type: WidthType.DXA },
                     children: [
                       mkPara("ĐOÀN CƠ SỞ TRUNG ĐOÀN 88", { align: AlignmentType.CENTER, size: 26 }),
                       mkPara("CHI ĐOÀN 17",               { align: AlignmentType.CENTER, bold: true }),
@@ -187,7 +201,7 @@ export async function exportToWord(data: ExportData): Promise<void> {
                   }),
                   new TableCell({
                     borders: noBorders,
-                    width: { size: 5940, type: WidthType.DXA },
+                    width: { size: Math.round(CONTENT_W * 0.57), type: WidthType.DXA },
                     children: [
                       mkPara("ĐOÀN TNCS HỒ CHÍ MINH",          { align: AlignmentType.CENTER, bold: true }),
                       mkPara(`Đồng Nai, ngày 15 tháng ${currentMonth.split("/")[0]} năm ${currentMonth.split("/")[1]}`, { align: AlignmentType.CENTER, italic: true, size: 26 }),
@@ -203,152 +217,230 @@ export async function exportToWord(data: ExportData): Promise<void> {
           mkPara(`Thu, chi đoàn phí tháng ${currentMonth}`, { align: AlignmentType.CENTER, bold: true, size: 26, before: 60, after: 200 }),
 
           // ── Section I: Summary table ─────────────────────────────────────────
-          mkPara("I. TỔNG HỢP", { bold: true, before: 100, after: 100 }),
+          mkPara("I. TỔNG HỢP", { bold: true, before: 120, after: 80 }),
+          (() => {
+            // Column widths that sum to CONTENT_W
+            const colTT   = 500;
+            const colName = 2400;
+            const colDV1  = 900;   // ĐV Tổng
+            const colDV2  = 1300;  // ĐV Số tiền
+            const colDNT1 = 900;   // ĐNT Tổng
+            const colDNT2 = 1300;  // ĐNT Số tiền
+            const colSum  = 1600;  // Cộng thu
+            const colSign = 1206;  // Ký tên
 
-          new Table({
-            width: { size: 10440, type: WidthType.DXA },
-            columnWidths: [500, 2200, 1200, 1400, 1200, 1400, 1540, 1000],
-            rows: [
-              // Header row 1
-              new TableRow({
-                children: [
-                  mkCell("TT",         { bold: true, shading: headerShading, width: { size: 500,  type: WidthType.DXA } }),
-                  mkCell("Tên đơn vị", { bold: true, shading: headerShading, width: { size: 2200, type: WidthType.DXA } }),
-                  new TableCell({
-                    borders: thinBorders, columnSpan: 2,
-                    width: { size: 2600, type: WidthType.DXA },
-                    shading: headerShading as any,
-                    margins: { top: 60, bottom: 60, left: 80, right: 80 },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Đoàn viên",    bold: true, size: 26, font: "Times New Roman" })] })],
-                  }),
-                  new TableCell({
-                    borders: thinBorders, columnSpan: 2,
-                    width: { size: 2600, type: WidthType.DXA },
-                    shading: headerShading as any,
-                    margins: { top: 60, bottom: 60, left: 80, right: 80 },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Đảng viên trẻ", bold: true, size: 26, font: "Times New Roman" })] })],
-                  }),
-                  mkCell("Cộng thu", { bold: true, shading: headerShading, width: { size: 1540, type: WidthType.DXA } }),
-                  mkCell("Ký tên",   { bold: true, shading: headerShading, width: { size: 1000, type: WidthType.DXA } }),
-                ],
-              }),
-              // Header row 2
-              new TableRow({
-                children: [
-                  mkCell("", { shading: headerShading, width: { size: 500,  type: WidthType.DXA } }),
-                  mkCell("", { shading: headerShading, width: { size: 2200, type: WidthType.DXA } }),
-                  mkCell("Tổng",    { bold: true, shading: headerShading, width: { size: 1200, type: WidthType.DXA } }),
-                  mkCell("Số tiền", { bold: true, shading: headerShading, width: { size: 1400, type: WidthType.DXA } }),
-                  mkCell("Tổng",    { bold: true, shading: headerShading, width: { size: 1200, type: WidthType.DXA } }),
-                  mkCell("Số tiền", { bold: true, shading: headerShading, width: { size: 1400, type: WidthType.DXA } }),
-                  mkCell("", { shading: headerShading, width: { size: 1540, type: WidthType.DXA } }),
-                  mkCell("", { shading: headerShading, width: { size: 1000, type: WidthType.DXA } }),
-                ],
-              }),
-              // Data rows
-              ...platoonFees.map((p, i) =>
+            const shd = headerShading;
+
+ // Helper: vertically-merged START cell (has content, opens the span)
+            const mkVStart = (text: string, w: number, opts: CellOpts = {}) =>
+              new TableCell({
+                borders:       thinBorders,
+                width:         { size: w, type: WidthType.DXA },
+                shading:       (opts.shading ?? shd) as any,
+                verticalAlign: VerticalAlign.CENTER,
+                verticalMerge: VerticalMergeType.RESTART,
+                margins:       { top: 60, bottom: 60, left: 80, right: 80 },
+                children: [new Paragraph({
+                  alignment: opts.align ?? AlignmentType.CENTER,
+                  children: [new TextRun({ text, bold: opts.bold ?? true, size: 26, font: "Times New Roman" })],
+                })],
+              });
+
+            // Helper: vertically-merged CONTINUE cell (empty, continues the span)
+            const mkVCont = (w: number, opts: CellOpts = {}) =>
+              new TableCell({
+                borders:       thinBorders,
+                width:         { size: w, type: WidthType.DXA },
+                shading:       (opts.shading ?? shd) as any,
+                verticalAlign: VerticalAlign.CENTER,
+                verticalMerge: VerticalMergeType.CONTINUE,
+                margins:       { top: 60, bottom: 60, left: 80, right: 80 },
+                children: [new Paragraph({ children: [] })],
+              });
+
+            return new Table({
+              width: { size: CONTENT_W, type: WidthType.DXA },
+              columnWidths: [colTT, colName, colDV1, colDV2, colDNT1, colDNT2, colSum, colSign],
+              rows: [
+                // ── Header row 1: TT* | Tên đơn vị* | Đoàn viên H (span 2) | Đảng viên trẻ (span 2) | Cộng thu* | Ký tên*
+                // (* = will span 2 rows via vMerge)
                 new TableRow({
                   children: [
-                    mkCell(String(i + 1),                   { width: { size: 500,  type: WidthType.DXA } }),
-                    mkCell(p.platoon, { align: AlignmentType.LEFT, width: { size: 2200, type: WidthType.DXA } }),
-                    mkCell(String(calcDVCount(p)),           { width: { size: 1200, type: WidthType.DXA } }),
-                    mkCell(formatCurrency(calcDVTotal(p)),   { width: { size: 1400, type: WidthType.DXA } }),
-                    mkCell(String(calcDNTCount(p)),          { width: { size: 1200, type: WidthType.DXA } }),
-                    mkCell(formatCurrency(calcDNTTotal(p)),  { width: { size: 1400, type: WidthType.DXA } }),
-                    mkCell(formatCurrency(calcPlatoonTotal(p)), { bold: true, width: { size: 1540, type: WidthType.DXA } }),
-                    mkCell("",                               { width: { size: 1000, type: WidthType.DXA } }),
+                    mkVStart("TT",          colTT),
+                    mkVStart("Tên đơn vị",  colName),
+                    // "Đoàn viên H" colspan=2
+                    new TableCell({
+                      borders: thinBorders, columnSpan: 2,
+                      width: { size: colDV1 + colDV2, type: WidthType.DXA },
+                      shading: shd as any,
+                      verticalAlign: VerticalAlign.CENTER,
+                      margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                      children: [new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: "Đoàn viên\nH", bold: true, size: 26, font: "Times New Roman" })],
+                      })],
+                    }),
+                    // "Đảng viên trẻ" colspan=2
+                    new TableCell({
+                      borders: thinBorders, columnSpan: 2,
+                      width: { size: colDNT1 + colDNT2, type: WidthType.DXA },
+                      shading: shd as any,
+                      verticalAlign: VerticalAlign.CENTER,
+                      margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                      children: [new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: "Đảng viên trẻ", bold: true, size: 26, font: "Times New Roman" })],
+                      })],
+                    }),
+                    mkVStart("Cộng thu", colSum),
+                    mkVStart("Ký tên",   colSign),
                   ],
-                })
-              ),
-              // Totals row
-              new TableRow({
-                children: [
-                  new TableCell({
-                    borders: thinBorders, columnSpan: 2,
-                    shading: headerShading as any,
-                    width: { size: 2700, type: WidthType.DXA },
-                    margins: { top: 60, bottom: 60, left: 80, right: 80 },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Tổng cộng", bold: true, size: 26, font: "Times New Roman" })] })],
-                  }),
-                  mkCell(String(platoonFees.reduce((s, p) => s + calcDVCount(p), 0)),            { bold: true, shading: headerShading, width: { size: 1200, type: WidthType.DXA } }),
-                  mkCell(formatCurrency(platoonFees.reduce((s, p) => s + calcDVTotal(p), 0)),    { bold: true, shading: headerShading, width: { size: 1400, type: WidthType.DXA } }),
-                  mkCell(String(platoonFees.reduce((s, p) => s + calcDNTCount(p), 0)),           { bold: true, shading: headerShading, width: { size: 1200, type: WidthType.DXA } }),
-                  mkCell(formatCurrency(platoonFees.reduce((s, p) => s + calcDNTTotal(p), 0)),   { bold: true, shading: headerShading, width: { size: 1400, type: WidthType.DXA } }),
-                  mkCell(formatCurrency(totalPlatoonFees),                                        { bold: true, shading: headerShading, width: { size: 1540, type: WidthType.DXA } }),
-                  mkCell("", { shading: headerShading, width: { size: 1000, type: WidthType.DXA } }),
-                ],
-              }),
-            ],
-          }),
+                }),
+                // ── Header row 2: continue TT & Tên đơn vị | Tổng | Số tiền | Tổng | Số tiền | continue Cộng thu & Ký tên
+                new TableRow({
+                  children: [
+                    mkVCont(colTT),    // TT continued
+                    mkVCont(colName),  // Tên đơn vị continued
+                    mkCell("Tổng",    { bold: true, shading: shd, width: { size: colDV1,  type: WidthType.DXA } }),
+                    mkCell("Số tiền", { bold: true, shading: shd, width: { size: colDV2,  type: WidthType.DXA } }),
+                    mkCell("Tổng",    { bold: true, shading: shd, width: { size: colDNT1, type: WidthType.DXA } }),
+                    mkCell("Số tiền", { bold: true, shading: shd, width: { size: colDNT2, type: WidthType.DXA } }),
+                    mkVCont(colSum),   // Cộng thu continued
+                    mkVCont(colSign),  // Ký tên continued
+                  ],
+                }),
+                // ── Data rows (one per platoon) ──
+                ...platoonFees.map((p, i) =>
+                  new TableRow({
+                    children: [
+                      mkCell(String(i + 1),                       { width: { size: colTT,   type: WidthType.DXA } }),
+                      mkCell(p.platoon, { align: AlignmentType.LEFT, width: { size: colName, type: WidthType.DXA } }),
+                      mkCell(String(calcDVCount(p)),              { width: { size: colDV1,  type: WidthType.DXA } }),
+                      mkCell(formatCurrency(calcDVTotal(p)),      { width: { size: colDV2,  type: WidthType.DXA } }),
+                      mkCell(String(calcDNTCount(p)),             { width: { size: colDNT1, type: WidthType.DXA } }),
+                      mkCell(formatCurrency(calcDNTTotal(p)),     { width: { size: colDNT2, type: WidthType.DXA } }),
+                      mkCell(formatCurrency(calcPlatoonTotal(p)), { bold: true, width: { size: colSum,  type: WidthType.DXA } }),
+                      mkCell("",                                  { width: { size: colSign, type: WidthType.DXA } }),
+                    ],
+                  })
+                ),
+                // ── Totals row: "Tổng" spans cols 1-2, then totals ──
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      borders: thinBorders, columnSpan: 2,
+                      shading: shd as any,
+                      width: { size: colTT + colName, type: WidthType.DXA },
+                      verticalAlign: VerticalAlign.CENTER,
+                      margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                      children: [new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: "Tổng", bold: true, size: 26, font: "Times New Roman" })],
+                      })],
+                    }),
+                    mkCell(String(platoonFees.reduce((s, p) => s + calcDVCount(p), 0)),           { bold: true, shading: shd, width: { size: colDV1,  type: WidthType.DXA } }),
+                    mkCell(formatCurrency(platoonFees.reduce((s, p) => s + calcDVTotal(p), 0)),   { bold: true, shading: shd, width: { size: colDV2,  type: WidthType.DXA } }),
+                    mkCell(String(platoonFees.reduce((s, p) => s + calcDNTCount(p), 0)),          { bold: true, shading: shd, width: { size: colDNT1, type: WidthType.DXA } }),
+                    mkCell(formatCurrency(platoonFees.reduce((s, p) => s + calcDNTTotal(p), 0)), { bold: true, shading: shd, width: { size: colDNT2, type: WidthType.DXA } }),
+                    mkCell(formatCurrency(totalPlatoonFees),                                      { bold: true, shading: shd, width: { size: colSum,  type: WidthType.DXA } }),
+                    mkCell("",                                                                    { shading: shd, width: { size: colSign, type: WidthType.DXA } }),
+                  ],
+                }),
+              ],
+            });
+          })(),
 
           // ── Section II: Income ───────────────────────────────────────────────
           mkPara("II. PHẦN THU", { bold: true, before: 200, after: 100 }),
           mkPara(`- Tổng thu nộp đoàn phí: ${formatCurrency(totalPlatoonFees)}`),
           mkPara(`   + Nộp lên trên (1/3): ${formatCurrency(Math.round(totalPlatoonFees / 3))}`),
           mkPara(`   + Trích giữ lại (2/3): ${formatCurrency(Math.round(totalPlatoonFees * 2 / 3))}`),
-          mkPara(`- Ngôi nhà 100 đồng: ${house100Count} x ${formatCurrency(house100Amount)} = ${formatCurrency(totalHouse100)}`),
-          mkPara(`- Thu từ các hoạt động: ${activityCount} x ${formatCurrency(activityAmount)} = ${formatCurrency(totalActivity)}`),
-          mkPara(`- Tiền cắt tóc: ${haircutCount} x ${formatCurrency(haircutAmount)} = ${formatCurrency(totalHaircut)}`),
-          mkPara(`- Tiền còn lại của tháng trước: ${formatCurrency(previousBalance)}`),
-          mkPara(
-            otherIncomes.length === 0
-              ? "- Thu khác: Không"
-              : `- Thu khác: ${otherIncomes.map((i) => `${i.activity}: ${formatCurrency(i.amount)}`).join(", ")}`
+          // Activities (dynamic list)
+          ...activities.map(a =>
+            mkPara(`- ${a.name}: ${a.memberCount} x ${formatCurrency(a.amountPerMember)} = ${formatCurrency(a.memberCount * a.amountPerMember)}`)
           ),
+
+          // Fixed incomes (dynamic list)
+          ...fixedIncomes.map(f =>
+            mkPara(`- ${f.name}: ${f.memberCount} x ${formatCurrency(f.amountPerMember)} = ${formatCurrency(f.memberCount * f.amountPerMember)}`)
+          ),
+
+          // Previous balance
+          mkPara(`- Tiền còn lại của tháng trước: ${formatCurrency(previousBalance)}`),
+          
+          // Other incomes
+          otherIncomes.length === 0
+            ? mkPara("- Thu khác: Không")
+            : mkPara(`- Thu khác: ${otherIncomes.map(i => `${i.activity}: ${formatCurrency(i.amount)}${i.description ? ` (${i.description})` : ""}`).join("; ")}`),
           mkPara(`* Tổng thu: ${formatCurrency(totalIncome)}`, { bold: true }),
 
           // ── Section III: Expenses ────────────────────────────────────────────
           mkPara("III. PHẦN CHI", { bold: true, before: 200, after: 100 }),
 
-          new Table({
-            width: { size: 10440, type: WidthType.DXA },
-            columnWidths: [500, 3940, 2000, 2000, 2000],
-            rows: [
-              new TableRow({
-                children: [
-                  mkCell("TT",           { bold: true, shading: headerShading, width: { size: 500,  type: WidthType.DXA } }),
-                  mkCell("Nội dung chi", { bold: true, shading: headerShading, align: AlignmentType.LEFT, width: { size: 3940, type: WidthType.DXA } }),
-                  mkCell("Số tiền",      { bold: true, shading: headerShading, width: { size: 2000, type: WidthType.DXA } }),
-                  mkCell("Người chi",    { bold: true, shading: headerShading, width: { size: 2000, type: WidthType.DXA } }),
-                  mkCell("Người duyệt", { bold: true, shading: headerShading, width: { size: 2000, type: WidthType.DXA } }),
-                ],
-              }),
-              ...expenses.map((e, i) =>
+          (() => {
+            const colTT      = 500;
+            const colContent = 3906;
+            const colAmount  = 1700;
+            const colSpender = 2000;
+            const colApprover= 2000;
+            const shd = headerShading;
+
+            return new Table({
+              width: { size: CONTENT_W, type: WidthType.DXA },
+              columnWidths: [colTT, colContent, colAmount, colSpender, colApprover],
+              rows: [
+                // Header
                 new TableRow({
                   children: [
-                    mkCell(String(i + 1),          { width: { size: 500,  type: WidthType.DXA } }),
-                    mkCell(e.content, { align: AlignmentType.LEFT, width: { size: 3940, type: WidthType.DXA } }),
-                    mkCell(formatCurrency(e.amount), { width: { size: 2000, type: WidthType.DXA } }),
-                    mkCell(e.spender,              { width: { size: 2000, type: WidthType.DXA } }),
-                    mkCell(e.approver,             { width: { size: 2000, type: WidthType.DXA } }),
+                    mkCell("TT",           { bold: true, shading: shd, width: { size: colTT,       type: WidthType.DXA } }),
+                    mkCell("Nội dung chi", { bold: true, shading: shd, align: AlignmentType.LEFT, width: { size: colContent,  type: WidthType.DXA } }),
+                    mkCell("Số tiền",      { bold: true, shading: shd, width: { size: colAmount,   type: WidthType.DXA } }),
+                    mkCell("Người chi",    { bold: true, shading: shd, width: { size: colSpender,  type: WidthType.DXA } }),
+                    mkCell("Người duyệt", { bold: true, shading: shd, width: { size: colApprover, type: WidthType.DXA } }),
                   ],
-                })
-              ),
-              // Total row
-              new TableRow({
-                children: [
-                  new TableCell({
-                    borders: thinBorders, columnSpan: 2,
-                    shading: headerShading as any,
-                    width: { size: 4440, type: WidthType.DXA },
-                    margins: { top: 60, bottom: 60, left: 80, right: 80 },
-                    children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Tổng chi:", bold: true, size: 26, font: "Times New Roman" })] })],
-                  }),
-                  mkCell(formatCurrency(totalExpense), { bold: true, shading: headerShading, width: { size: 2000, type: WidthType.DXA } }),
-                  mkCell("", { shading: headerShading, width: { size: 2000, type: WidthType.DXA } }),
-                  mkCell("", { shading: headerShading, width: { size: 2000, type: WidthType.DXA } }),
-                ],
-              }),
-            ],
-          }),
+                }),
+                // Expense rows
+                ...expenses.map((e, i) =>
+                  new TableRow({
+                    children: [
+                      mkCell(String(i + 1),          { width: { size: colTT,       type: WidthType.DXA } }),
+                      mkCell(e.content, { align: AlignmentType.LEFT, width: { size: colContent,  type: WidthType.DXA } }),
+                      mkCell(formatCurrency(e.amount), { width: { size: colAmount,   type: WidthType.DXA } }),
+                      mkCell(e.spender,              { width: { size: colSpender,  type: WidthType.DXA } }),
+                      mkCell(e.approver,             { width: { size: colApprover, type: WidthType.DXA } }),
+                    ],
+                  })
+                ),
+                // Totals row
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      borders: thinBorders, columnSpan: 2,
+                      shading: shd as any,
+                      width: { size: colTT + colContent, type: WidthType.DXA },
+                      verticalAlign: VerticalAlign.CENTER,
+                      margins: { top: 60, bottom: 60, left: 80, right: 80 },
+                      children: [new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [new TextRun({ text: "Tổng chi:", bold: true, size: 26, font: "Times New Roman" })],
+                      })],
+                    }),
+                    mkCell(formatCurrency(totalExpense), { bold: true, shading: shd, width: { size: colAmount,   type: WidthType.DXA } }),
+                    mkCell("",                           { shading: shd,             width: { size: colSpender,  type: WidthType.DXA } }),
+                    mkCell("",                           { shading: shd,             width: { size: colApprover, type: WidthType.DXA } }),
+                  ],
+                }),
+              ],
+            });
+          })(),
 
           // ── Section IV: Carry forward ────────────────────────────────────────
           mkPara(`IV. CHUYỂN THÁNG SAU: ${formatCurrency(remainingBalance)}`, { bold: true, before: 200, after: 200 }),
 
           // ── Signature block ──────────────────────────────────────────────────
           new Table({
-            width: { size: 10440, type: WidthType.DXA },
-            columnWidths: [5220, 5220],
+            width: { size: CONTENT_W, type: WidthType.DXA },
+            columnWidths: [Math.round(CONTENT_W / 2), Math.round(CONTENT_W / 2)],
             borders: {
               top: noBorder, bottom: noBorder,
               left: noBorder, right: noBorder,

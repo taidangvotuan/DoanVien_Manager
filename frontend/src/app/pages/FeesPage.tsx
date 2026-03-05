@@ -5,22 +5,10 @@ import { Label } from "../components/ui/label";
 import { exportToWord } from "../utils/exportWordUtils";
 import { Lock, LockOpen, Download, Save, Plus, Trash2, Edit2, List } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} 
+from "../components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,} 
+from "../components/ui/dialog";
 import { Textarea } from "../components/ui/textarea";
 
 interface PlatoonFee {
@@ -37,6 +25,27 @@ interface PlatoonFee {
   r2Amount: number;
   r3Count: number;
   r3Amount: number;
+}
+
+interface Activity {
+  id: string;
+  name: string;
+  memberCount: number;
+  amountPerMember: number;
+}
+
+interface FixedIncome {
+  id: string;
+  name: string;
+  memberCount: number;
+  amountPerMember: number;
+}
+
+interface OtherIncome {
+  id: string;
+  activity: string;
+  amount: number;
+  description: string;
 }
 
 interface OtherIncome {
@@ -101,17 +110,25 @@ export default function FeesPage() {
     },
   ]);
 
-  // Ngôi nhà 100 đồng
-  const [house100Count, setHouse100Count] = useState(0);
-  const [house100Amount, setHouse100Amount] = useState(100000);
-
   // Thu từ các hoạt động
-  const [activityCount, setActivityCount] = useState(0);
-  const [activityAmount, setActivityAmount] = useState(50000);
+  const [activities, setActivities] = useState<Activity[]>([
+    {
+      id: "1",
+      name: "Hoạt động văn nghệ",
+      memberCount: 30,
+      amountPerMember: 50000,
+    },
+  ]);
 
   // Các khoản thu cố định
-  const [haircutCount, setHaircutCount] = useState(0);
-  const [haircutAmount, setHaircutAmount] = useState(20000);
+  const [fixedIncomes, setFixedIncomes] = useState<FixedIncome[]>([
+    {
+      id: "1",
+      name: "Tiền cắt tóc",
+      memberCount: 28,
+      amountPerMember: 20000,
+    },
+  ]);
 
   // Tiền còn lại tháng trước
   const [previousBalance, setPreviousBalance] = useState(0);
@@ -138,8 +155,14 @@ export default function FeesPage() {
   ]);
 
   // Dialog states
+  const [showActivityDialog, setShowActivityDialog] = useState(false);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [showFixedIncomeDialog, setShowFixedIncomeDialog] = useState(false);
+  const [editingFixedIncome, setEditingFixedIncome] = useState<FixedIncome | null>(null);
   const [showOtherIncomeDialog, setShowOtherIncomeDialog] = useState(false);
   const [editingIncome, setEditingIncome] = useState<OtherIncome | null>(null);
+  const [showExpenseDialog, setShowExpenseDialog] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Historical data
   const [monthlySummaries] = useState<MonthlySummary[]>([
@@ -184,18 +207,12 @@ export default function FeesPage() {
     0
   );
 
-  const totalHouse100 = house100Count * house100Amount;
-  const totalActivity = activityCount * activityAmount;
-  const totalHaircut = haircutCount * haircutAmount;
+  const totalActivities = activities.reduce((sum, a) => sum + a.memberCount * a.amountPerMember, 0);
+  const totalFixedIncomes = fixedIncomes.reduce((sum, f) => sum + f.memberCount * f.amountPerMember, 0);
   const totalOtherIncome = otherIncomes.reduce((sum, i) => sum + i.amount, 0);
 
-  const totalIncome =
-    totalPlatoonFees +
-    totalHouse100 +
-    totalActivity +
-    totalHaircut +
-    previousBalance +
-    totalOtherIncome;
+  const totalIncome = totalPlatoonFees + totalActivities + totalFixedIncomes 
+  + previousBalance + totalOtherIncome;
 
   const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalToSubmit = totalIncome - totalExpense;
@@ -214,13 +231,8 @@ export default function FeesPage() {
   const handleExportWord = async () => {
     try {
       await exportToWord({
-        currentMonth, platoonFees,
-        house100Count, house100Amount,
-        activityCount, activityAmount,
-        haircutCount,  haircutAmount,
-        previousBalance,
-        otherIncomes,
-        expenses,
+        currentMonth, platoonFees, activities, fixedIncomes,
+        previousBalance, otherIncomes, expenses,
       });
       toast.success("Xuất báo cáo thành công!");
     } catch (error) {
@@ -229,6 +241,65 @@ export default function FeesPage() {
     }
   };
 
+// Activity handlers
+  const handleAddActivity = () => {
+    setEditingActivity(null);
+    setShowActivityDialog(true);
+  };
+
+  const handleEditActivity = (activity: Activity) => {
+    setEditingActivity(activity);
+    setShowActivityDialog(true);
+  };
+
+  const handleDeleteActivity = (id: string) => {
+    setActivities(activities.filter((a) => a.id !== id));
+    toast.success("Đã xóa hoạt động");
+  };
+
+  const handleSaveActivity = (activity: Activity) => {
+    if (editingActivity) {
+      setActivities(
+        activities.map((a) => (a.id === activity.id ? activity : a))
+      );
+      toast.success("Đã cập nhật hoạt động");
+    } else {
+      setActivities([...activities, { ...activity, id: Date.now().toString() }]);
+      toast.success("Đã thêm hoạt động");
+    }
+    setShowActivityDialog(false);
+  };
+
+  // Fixed Income handlers
+  const handleAddFixedIncome = () => {
+    setEditingFixedIncome(null);
+    setShowFixedIncomeDialog(true);
+  };
+
+  const handleEditFixedIncome = (fixedIncome: FixedIncome) => {
+    setEditingFixedIncome(fixedIncome);
+    setShowFixedIncomeDialog(true);
+  };
+
+  const handleDeleteFixedIncome = (id: string) => {
+    setFixedIncomes(fixedIncomes.filter((f) => f.id !== id));
+    toast.success("Đã xóa khoản thu cố định");
+  };
+
+  const handleSaveFixedIncome = (fixedIncome: FixedIncome) => {
+    if (editingFixedIncome) {
+      setFixedIncomes(
+        fixedIncomes.map((f) => (f.id === fixedIncome.id ? fixedIncome : f))
+      );
+      toast.success("Đã cập nhật khoản thu cố định");
+    } else {
+      setFixedIncomes([...fixedIncomes, { ...fixedIncome, id: Date.now().toString() }]);
+      toast.success("Đã thêm khoản thu cố định");
+    }
+    setShowFixedIncomeDialog(false);
+  };
+
+  // Other Income handlers
   const handleAddOtherIncome = () => {
     setEditingIncome(null);
     setShowOtherIncomeDialog(true);
@@ -257,17 +328,15 @@ export default function FeesPage() {
     setShowOtherIncomeDialog(false);
   };
 
+  // Expense
   const handleAddExpense = () => {
-    setExpenses([
-      ...expenses,
-      {
-        id: Date.now().toString(),
-        content: "",
-        amount: 0,
-        spender: "",
-        approver: "",
-      },
-    ]);
+    setEditingExpense(null);
+    setShowExpenseDialog(true);
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setShowExpenseDialog(true);
   };
 
   const handleDeleteExpense = (id: string) => {
@@ -275,16 +344,23 @@ export default function FeesPage() {
     toast.success("Đã xóa khoản chi");
   };
 
+  const handleSaveExpense = (expense: Expense) => {
+    if (editingExpense) {
+      setExpenses(
+        expenses.map((e) => (e.id === expense.id ? expense : e))
+      );
+      toast.success("Đã cập nhật khoản chi");
+    } else {
+      setExpenses([...expenses, { ...expense, id: Date.now().toString() }]);
+      toast.success("Đã thêm khoản chi");
+    }
+    setShowExpenseDialog(false);
+  };
+
   const updatePlatoonFee = (index: number, field: keyof PlatoonFee, value: number) => {
     const newPlatoonFees = [...platoonFees];
     (newPlatoonFees[index] as any)[field] = value;
     setPlatoonFees(newPlatoonFees);
-  };
-
-  const updateExpense = (id: string, field: keyof Expense, value: string | number) => {
-    setExpenses(
-      expenses.map((e) => (e.id === id ? { ...e, [field]: value } : e))
-    );
   };
 
   return (
@@ -631,114 +707,158 @@ export default function FeesPage() {
             </div>
           </div>
 
-          {/* Thu từ các hoạt động & Ngôi nhà 100 đồng */}
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Ngôi nhà 100 đồng */}
-            <div className="bg-card p-6 rounded-lg border border-border">
-              <h3 className="text-lg font-semibold mb-4">🏠 Ngôi nhà 100 đồng</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label>Số thành viên</Label>
-                  <Input
-                    type="number"
-                    value={house100Count}
-                    onChange={(e) => setHouse100Count(Number(e.target.value))}
-                    disabled={isLocked}
-                  />
-                </div>
-                <div>
-                  <Label>Số tiền mỗi thành viên</Label>
-                  <Input
-                    type="number"
-                    value={house100Amount}
-                    onChange={(e) => setHouse100Amount(Number(e.target.value))}
-                    disabled={isLocked}
-                  />
-                </div>
-                <div className="bg-green-50 p-3 rounded">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">Tổng:</span>
-                    <span className="text-xl font-bold text-green-600">
-                      {formatCurrency(totalHouse100)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+          {/* Thu từ các hoạt động */}
+          <div className="bg-card p-6 rounded-lg border border-border">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-semibold">🎯 Thu từ các hoạt động</h2>
+              <Button
+                onClick={handleAddActivity}
+                disabled={isLocked}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Thêm
+              </Button>
             </div>
-
-            {/* Thu từ các hoạt động */}
-            <div className="bg-card p-6 rounded-lg border border-border">
-              <h3 className="text-lg font-semibold mb-4">🎯 Thu từ các hoạt động</h3>
-              <div className="space-y-3">
-                <div>
-                  <Label>Số thành viên</Label>
-                  <Input
-                    type="number"
-                    value={activityCount}
-                    onChange={(e) => setActivityCount(Number(e.target.value))}
-                    disabled={isLocked}
-                  />
-                </div>
-                <div>
-                  <Label>Số tiền mỗi thành viên</Label>
-                  <Input
-                    type="number"
-                    value={activityAmount}
-                    onChange={(e) => setActivityAmount(Number(e.target.value))}
-                    disabled={isLocked}
-                  />
-                </div>
-                <div className="bg-green-50 p-3 rounded">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">Tổng:</span>
-                    <span className="text-xl font-bold text-green-600">
-                      {formatCurrency(totalActivity)}
-                    </span>
-                  </div>
-                </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tên hoạt động</TableHead>
+                  <TableHead>Số thành viên</TableHead>
+                  <TableHead>Số tiền mỗi thành viên</TableHead>
+                  <TableHead>Tổng</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activities.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Chưa có hoạt động nào
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  activities.map((activity) => (
+                    <TableRow key={activity.id}>
+                      <TableCell className="font-medium">{activity.name}</TableCell>
+                      <TableCell>{activity.memberCount}</TableCell>
+                      <TableCell>{formatCurrency(activity.amountPerMember)}</TableCell>
+                      <TableCell className="font-semibold text-green-600">
+                        {formatCurrency(activity.memberCount * activity.amountPerMember)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditActivity(activity)}
+                            disabled={isLocked}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteActivity(activity.id)}
+                            disabled={isLocked}
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            <div className="bg-green-50 p-4 rounded-lg mt-4">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-bold">Tổng:</span>
+                <span className="text-2xl font-bold text-green-600">
+                  {formatCurrency(totalActivities)}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Các khoản thu cố định */}
           <div className="bg-card p-6 rounded-lg border border-border">
-            <h2 className="text-2xl font-semibold mb-4">
-              💈 Các khoản thu cố định
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium mb-3">Tiền cắt tóc</h3>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Số thành viên</Label>
-                    <Input
-                      type="number"
-                      value={haircutCount}
-                      onChange={(e) => setHaircutCount(Number(e.target.value))}
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div>
-                    <Label>Số tiền mỗi thành viên</Label>
-                    <Input
-                      type="number"
-                      value={haircutAmount}
-                      onChange={(e) => setHaircutAmount(Number(e.target.value))}
-                      disabled={isLocked}
-                    />
-                  </div>
-                  <div className="bg-green-50 p-3 rounded flex items-end">
-                    <div className="flex justify-between items-center w-full">
-                      <span className="font-semibold">Tổng:</span>
-                      <span className="text-xl font-bold text-green-600">
-                        {formatCurrency(totalHaircut)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-semibold">
+                💈 Các khoản thu cố định
+              </h2>
+              <Button
+                onClick={handleAddFixedIncome}
+                disabled={isLocked}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Thêm
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tên khoản thu cố định</TableHead>
+                  <TableHead>Số thành viên</TableHead>
+                  <TableHead>Số tiền mỗi thành viên</TableHead>
+                  <TableHead>Tổng</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fixedIncomes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Chưa có khoản thu cố định nào
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  fixedIncomes.map((fixedIncome) => (
+                    <TableRow key={fixedIncome.id}>
+                      <TableCell className="font-medium">{fixedIncome.name}</TableCell>
+                      <TableCell>{fixedIncome.memberCount}</TableCell>
+                      <TableCell>{formatCurrency(fixedIncome.amountPerMember)}</TableCell>
+                      <TableCell className="font-semibold text-green-600">
+                        {formatCurrency(fixedIncome.memberCount * fixedIncome.amountPerMember)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditFixedIncome(fixedIncome)}
+                            disabled={isLocked}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteFixedIncome(fixedIncome.id)}
+                            disabled={isLocked}
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+            <div className="bg-green-50 p-4 rounded-lg mt-4">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-bold">Tổng:</span>
+                <span className="text-2xl font-bold text-green-600">
+                  {formatCurrency(totalFixedIncomes)}
+                </span>
               </div>
             </div>
           </div>
+
 
           {/* Các khoản thu khác */}
           <div className="bg-card p-6 rounded-lg border border-border">
@@ -823,7 +943,7 @@ export default function FeesPage() {
                 className="gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Thêm khoản chi
+                Thêm
               </Button>
             </div>
             <Table>
@@ -837,63 +957,45 @@ export default function FeesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenses.map((expense) => (
-                  <TableRow key={expense.id}>
-                    <TableCell>
-                      <Input
-                        value={expense.content}
-                        onChange={(e) =>
-                          updateExpense(expense.id, "content", e.target.value)
-                        }
-                        disabled={isLocked}
-                        placeholder="Nội dung chi"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        value={expense.amount}
-                        onChange={(e) =>
-                          updateExpense(expense.id, "amount", Number(e.target.value))
-                        }
-                        disabled={isLocked}
-                        placeholder="Số tiền"
-                        className="w-32"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={expense.spender}
-                        onChange={(e) =>
-                          updateExpense(expense.id, "spender", e.target.value)
-                        }
-                        disabled={isLocked}
-                        placeholder="Người chi"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={expense.approver}
-                        onChange={(e) =>
-                          updateExpense(expense.id, "approver", e.target.value)
-                        }
-                        disabled={isLocked}
-                        placeholder="Người duyệt"
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteExpense(expense.id)}
-                        disabled={isLocked}
-                        className="hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                {expenses.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Chưa có khoản chi nào
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  expenses.map((expense) => (
+                    <TableRow key={expense.id}>
+                      <TableCell>{expense.content}</TableCell>
+                      <TableCell className="font-semibold text-red-600">
+                        {formatCurrency(expense.amount)}
+                      </TableCell>
+                      <TableCell>{expense.spender}</TableCell>
+                      <TableCell>{expense.approver}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditExpense(expense)}
+                            disabled={isLocked}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteExpense(expense.id)}
+                            disabled={isLocked}
+                            className="hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
             <div className="bg-red-50 p-4 rounded-lg mt-4">
@@ -926,6 +1028,22 @@ export default function FeesPage() {
         </div>
       </main>
 
+    {/* Activity Dialog */}
+      <ActivityDialog
+        open={showActivityDialog}
+        onOpenChange={setShowActivityDialog}
+        onSave={handleSaveActivity}
+        activity={editingActivity}
+      />
+
+      {/* Fixed Income Dialog */}
+      <FixedIncomeDialog
+        open={showFixedIncomeDialog}
+        onOpenChange={setShowFixedIncomeDialog}
+        onSave={handleSaveFixedIncome}
+        fixedIncome={editingFixedIncome}
+      />
+
       {/* Other Income Dialog */}
       <OtherIncomeDialog
         open={showOtherIncomeDialog}
@@ -933,7 +1051,224 @@ export default function FeesPage() {
         onSave={handleSaveOtherIncome}
         income={editingIncome}
       />
+
+      {/* Expense Dialog */}
+      <ExpenseDialog
+        open={showExpenseDialog}
+        onOpenChange={setShowExpenseDialog}
+        onSave={handleSaveExpense}
+        expense={editingExpense}
+      />
     </>
+  );
+}
+
+interface ActivityDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (activity: Activity) => void;
+  activity: Activity | null;
+}
+
+function ActivityDialog({
+  open,
+  onOpenChange,
+  onSave,
+  activity,
+}: ActivityDialogProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    memberCount: 0,
+    amountPerMember: 0,
+  });
+
+  useState(() => {
+    if (activity) {
+      setFormData({
+        name: activity.name,
+        memberCount: activity.memberCount,
+        amountPerMember: activity.amountPerMember,
+      });
+    } else {
+      setFormData({
+        name: "",
+        memberCount: 0,
+        amountPerMember: 0,
+      });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      id: activity?.id || Date.now().toString(),
+      ...formData,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {activity ? "Sửa hoạt động" : "Thêm hoạt động"}
+          </DialogTitle>
+          <DialogDescription>
+            Nhập thông tin hoạt động
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Tên hoạt động</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="memberCount">Số thành viên</Label>
+              <Input
+                id="memberCount"
+                type="number"
+                value={formData.memberCount}
+                onChange={(e) =>
+                  setFormData({ ...formData, memberCount: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="amountPerMember">Số tiền mỗi thành viên</Label>
+              <Input
+                id="amountPerMember"
+                type="number"
+                value={formData.amountPerMember}
+                onChange={(e) =>
+                  setFormData({ ...formData, amountPerMember: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Hủy
+            </Button>
+            <Button type="submit">Lưu</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Fixed Income Dialog Component
+interface FixedIncomeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (fixedIncome: FixedIncome) => void;
+  fixedIncome: FixedIncome | null;
+}
+
+function FixedIncomeDialog({
+  open,
+  onOpenChange,
+  onSave,
+  fixedIncome,
+}: FixedIncomeDialogProps) {
+  const [formData, setFormData] = useState({
+    name: "",
+    memberCount: 0,
+    amountPerMember: 0,
+  });
+
+  useState(() => {
+    if (fixedIncome) {
+      setFormData({
+        name: fixedIncome.name,
+        memberCount: fixedIncome.memberCount,
+        amountPerMember: fixedIncome.amountPerMember,
+      });
+    } else {
+      setFormData({
+        name: "",
+        memberCount: 0,
+        amountPerMember: 0,
+      });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      id: fixedIncome?.id || Date.now().toString(),
+      ...formData,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {fixedIncome ? "Sửa khoản thu cố định" : "Thêm khoản thu cố định"}
+          </DialogTitle>
+          <DialogDescription>
+            Nhập thông tin khoản thu cố định
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Tên khoản thu cố định</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="memberCount">Số thành viên</Label>
+              <Input
+                id="memberCount"
+                type="number"
+                value={formData.memberCount}
+                onChange={(e) =>
+                  setFormData({ ...formData, memberCount: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="amountPerMember">Số tiền mỗi thành viên</Label>
+              <Input
+                id="amountPerMember"
+                type="number"
+                value={formData.amountPerMember}
+                onChange={(e) =>
+                  setFormData({ ...formData, amountPerMember: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Hủy
+            </Button>
+            <Button type="submit">Lưu</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -995,7 +1330,7 @@ function OtherIncomeDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="activity">Nội dung hoạt động</Label>
+              <Label htmlFor="activity">Nội dung hoạt động<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="activity"
                 value={formData.activity}
@@ -1026,6 +1361,121 @@ function OtherIncomeDialog({
                   setFormData({ ...formData, description: e.target.value })
                 }
                 rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Hủy
+            </Button>
+            <Button type="submit">Lưu</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Expense Dialog Component
+interface ExpenseDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (expense: Expense) => void;
+  expense: Expense | null;
+}
+
+function ExpenseDialog({
+  open, onOpenChange, onSave, expense,
+}: ExpenseDialogProps) {
+  const [formData, setFormData] = useState({
+    content: "",
+    amount: 0,
+    spender: "",
+    approver: "",
+  });
+
+  useState(() => {
+    if (expense) {
+      setFormData({
+        content: expense.content,
+        amount: expense.amount,
+        spender: expense.spender,
+        approver: expense.approver,
+      });
+    } else {
+      setFormData({
+        content: "",
+        amount: 0,
+        spender: "",
+        approver: "",
+      });
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      id: expense?.id || Date.now().toString(),
+      ...formData,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {expense ? "Sửa khoản chi" : "Thêm khoản chi"}
+          </DialogTitle>
+          <DialogDescription>
+            Nhập thông tin khoản chi
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="content">Nội dung chi</Label>
+              <Input
+                id="content"
+                value={formData.content}
+                onChange={(e) =>
+                  setFormData({ ...formData, content: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="amount">Số tiền</Label>
+              <Input
+                id="amount"
+                type="number"
+                value={formData.amount}
+                onChange={(e) =>
+                  setFormData({ ...formData, amount: Number(e.target.value) })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="spender">Người chi</Label>
+              <Input
+                id="spender"
+                value={formData.spender}
+                onChange={(e) =>
+                  setFormData({ ...formData, spender: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="approver">Người duyệt</Label>
+              <Input
+                id="approver"
+                value={formData.approver}
+                onChange={(e) =>
+                  setFormData({ ...formData, approver: e.target.value })
+                }
+                required
               />
             </div>
           </div>
