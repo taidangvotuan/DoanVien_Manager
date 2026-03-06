@@ -1,4 +1,4 @@
-# QUẢN LÝ ĐOÀN VIÊN
+# HƯỚNG DẪN SỬ DỤNG PHẦN MỀM QUẢN LÝ ĐOÀN VIÊN
 Phần mềm giúp cho việc quản lý thông tin đoàn viên và thu chi trở nên dễ dàng hơn.
 ## Cách khởi động
 **1. Cài đặt Visual Studio Code**
