@@ -112,22 +112,22 @@ export default function FeesPage() {
 
   // Thu từ các hoạt động
   const [activities, setActivities] = useState<Activity[]>([
-    {
-      id: "1",
-      name: "Hoạt động văn nghệ",
-      memberCount: 30,
-      amountPerMember: 50000,
-    },
+    // {
+    //   id: "1",
+    //   name: "Hoạt động văn nghệ",
+    //   memberCount: 30,
+    //   amountPerMember: 50000,
+    // },
   ]);
 
   // Các khoản thu cố định
   const [fixedIncomes, setFixedIncomes] = useState<FixedIncome[]>([
-    {
-      id: "1",
-      name: "Tiền cắt tóc",
-      memberCount: 28,
-      amountPerMember: 20000,
-    },
+    // {
+    //   id: "1",
+    //   name: "Tiền cắt tóc",
+    //   memberCount: 28,
+    //   amountPerMember: 20000,
+    // },
   ]);
 
   // Tiền còn lại tháng trước
@@ -145,13 +145,13 @@ export default function FeesPage() {
 
   // Các khoản chi
   const [expenses, setExpenses] = useState<Expense[]>([
-    {
-      id: "1",
-      content: "Mua nước",
-      amount: 200000,
-      spender: "Nguyễn Văn A",
-      approver: "Trần Văn B",
-    },
+    // {
+    //   id: "1",
+    //   content: "Mua nước",
+    //   amount: 200000,
+    //   spender: "Nguyễn Văn A",
+    //   approver: "Trần Văn B",
+    // },
   ]);
 
   // Dialog states
@@ -164,23 +164,8 @@ export default function FeesPage() {
   const [showExpenseDialog, setShowExpenseDialog] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
-  // Historical data
-  const [monthlySummaries] = useState<MonthlySummary[]>([
-    // {
-    //   month: "12/2023",
-    //   totalIncome: 15000000,
-    //   totalExpense: 10000000,
-    //   balance: 5000000,
-    //   isLocked: true,
-    // },
-    // {
-    //   month: "11/2023",
-    //   totalIncome: 14500000,
-    //   totalExpense: 9500000,
-    //   balance: 5000000,
-    //   isLocked: true,
-    // },
-  ]);
+  // Historical data — now mutable so handleSave can append to it
+  const [monthlySummaries, setMonthlySummaries] = useState<MonthlySummary[]>([]);
 
   // Format currency
   const formatCurrency = (amount: number) => {
@@ -225,6 +210,27 @@ export default function FeesPage() {
   };
 
   const handleSave = () => {
+    const newSummary: MonthlySummary = {
+      month: currentMonth,
+      totalIncome,
+      totalExpense,
+      balance: remainingBalance,
+      isLocked,
+    };
+
+    setMonthlySummaries((prev) => {
+      // Replace existing entry for same month, or append new one
+      const exists = prev.findIndex((s) => s.month === currentMonth);
+      if (exists !== -1) {
+        const updated = [...prev];
+        updated[exists] = newSummary;
+        return updated;
+      }
+      return [...prev, newSummary];
+    });
+
+    // Auto-open the summary list so the user sees the saved row
+    setShowSummaryList(true);
     toast.success("Đã lưu bản ghi thành công!");
   };
 
@@ -1120,7 +1126,7 @@ function ActivityDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">Tên hoạt động</Label>
+              <Label htmlFor="name">Tên hoạt động<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -1225,7 +1231,7 @@ function FixedIncomeDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">Tên khoản thu cố định</Label>
+              <Label htmlFor="name">Tên khoản thu cố định<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -1434,7 +1440,7 @@ function ExpenseDialog({
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="content">Nội dung chi</Label>
+              <Label htmlFor="content">Nội dung chi<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="content"
                 value={formData.content}
@@ -1457,7 +1463,7 @@ function ExpenseDialog({
               />
             </div>
             <div>
-              <Label htmlFor="spender">Người chi</Label>
+              <Label htmlFor="spender">Người chi<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="spender"
                 value={formData.spender}
@@ -1468,7 +1474,7 @@ function ExpenseDialog({
               />
             </div>
             <div>
-              <Label htmlFor="approver">Người duyệt</Label>
+              <Label htmlFor="approver">Người duyệt<span style={{color: 'red'}}>*</span></Label>
               <Input
                 id="approver"
                 value={formData.approver}

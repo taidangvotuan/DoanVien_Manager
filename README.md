@@ -77,3 +77,8 @@ npm run dev
 
 **8. Danh sách tổng hợp**
 + Nhấn vào nút __Danh sách tổng hợp__, lúc này hệ thống sé hiện ra danh sách tiền còn lại của các tháng trước.
+
+**8. Cập nhật trạng thái trong Danh sách tổng hợp**
++ B1: Nhấn vào nút __Danh sách tổng hợp__
++ B2: Nhấn vào nút __Khóa chỉnh sửa__ (Nếu muốn khóa) hoặc __Mở khóa__ (Nếu muốn bỏ khóa)
++ B3: Nhấn __Lưu bản ghi__
